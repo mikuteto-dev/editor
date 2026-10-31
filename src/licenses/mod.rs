@@ -259,6 +259,10 @@ pub fn affects(path: &Path) -> bool {
 
 /// A language can have several package managers (npm and Deno, pip and conda); the nearest manifest wins.
 pub fn manifest_for(file: &Path, root: &Path) -> Option<PathBuf> {
+    // Graph and license tabs are keyed "graph:<manifest>", which is no file.
+    if !file.starts_with(root) {
+        return None;
+    }
     if is_manifest(file) {
         return Some(file.to_path_buf());
     }
@@ -335,6 +339,14 @@ fn probe() {
     for d in &report.deps {
         println!("{} {} {:?} shipped={} aliases={:?}", d.name, d.version, d.license, d.shipped, d.aliases);
     }
+}
+
+#[std::prelude::rust_2024::test]
+fn tab_keys_are_no_manifest() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let manifest = root.join("Cargo.toml");
+    assert_eq!(manifest_for(&manifest, root), Some(manifest.clone()));
+    assert_eq!(manifest_for(&PathBuf::from(format!("graph:{}", manifest.display())), root), None);
 }
 
 #[std::prelude::rust_2024::test]
