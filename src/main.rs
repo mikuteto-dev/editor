@@ -1,11 +1,15 @@
 mod commands;
+mod dep_graph;
+mod diff_view;
 mod git;
 mod git_panel;
 mod icons;
+mod licenses;
 mod palette;
 mod recent;
 mod search;
 mod session;
+mod shell;
 mod tab;
 mod theme;
 mod tree;
@@ -27,6 +31,7 @@ fn config_dir() -> PathBuf {
 }
 
 fn main() {
+    shell::warm();
     let (opened, open_requests) = smol::channel::unbounded::<PathBuf>();
     let arg = std::env::args_os()
         .nth(1)
@@ -53,6 +58,7 @@ fn main() {
         gpui_kit::init(cx);
         theme::init(cx);
         tree::init(cx);
+        git_panel::init(cx);
         commands::init(cx);
         cx.activate(true);
         let options = WindowOptions {

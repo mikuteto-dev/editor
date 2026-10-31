@@ -3,10 +3,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use gpui_kit::*;
+use gpui_kit::{component::input::Rope, *};
 
 use super::{Panel, Workspace};
-use crate::tab::Body;
+use crate::{licenses, tab::Body};
 
 fn in_git(path: &Path) -> bool {
     path.components().any(|c| c.as_os_str() == ".git")
@@ -44,20 +44,34 @@ impl Workspace {
             tree.update(cx, |tree, cx| tree.refresh(&dirs, cx));
         }
 
-        for tab in &self.tabs {
-            let Body::Text(text) = &tab.body else { continue };
+        for tab in &mut self.tabs {
+            let Body::Text(text) = &mut tab.body else { continue };
             if text.dirty || !paths.contains(&tab.path) {
                 continue;
             }
             let Ok(disk) = std::fs::read_to_string(&tab.path) else { continue };
+            let rope = Rope::from_str(&disk);
+            // Our own saves come back here too; leave identical text untouched.
+            if *text.editor.read(cx).text() == rope {
+                continue;
+            }
+            text.saved = rope;
             text.editor.update(cx, |editor, cx| {
-                // Our own saves come back here too; leave identical text untouched.
-                if editor.text().to_string() != disk {
-                    let pos = editor.cursor_position();
-                    editor.set_value(disk, window, cx);
-                    editor.set_cursor_position(pos, window, cx);
-                }
+                let pos = editor.cursor_position();
+                editor.set_value(disk, window, cx);
+                editor.set_cursor_position(pos, window, cx);
             });
+        }
+
+        // A manifest or lockfile change can change any package's dependencies.
+        let deps_moved = paths.iter().any(|p| !in_git(p) && licenses::affects(p));
+        if deps_moved {
+            self.reports.clear();
+        }
+        for ix in 0..self.tabs.len() {
+            if deps_moved || paths.contains(&self.tabs[ix].path) {
+                self.check_licenses(ix, cx);
+            }
         }
     }
 }

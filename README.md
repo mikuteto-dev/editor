@@ -8,7 +8,8 @@ A lightweight code editor for macOS, built with [GPUI](https://www.gpui.rs).
 - File tree with file-type icons and git status, following `.gitignore` and changes on disk
 - Preview tabs, and the open tabs of each folder restored when you return to it
 - Project-wide search and find/replace in a file
-- Git: changed lines in the editor, changed files with diffs, commit history, file history
+- Git: stage with checkboxes, commit and amend, fetch, pull, push, create and switch branches, stash, discard changes, conflicts, diffs, history, and who last changed the current line
+- Dependency licenses on manifest entries and import lines, with conflicts against your own license marked, and a dependency graph that opens onto the problems: Cargo; npm, pnpm, Yarn, Bun and Deno; pip, uv, Poetry, Pipenv, PDM, Hatch, conda and pixi; Go; Bundler; Composer; NuGet; Maven and Gradle; SwiftPM, CocoaPods and Carthage; LuaRocks; vcpkg and Conan
 - Markdown and SVG preview
 - Images and video in tabs
 - Recent folders, command palette, dark themes
@@ -25,7 +26,8 @@ A lightweight code editor for macOS, built with [GPUI](https://www.gpui.rs).
 | `Cmd+B` | Toggle sidebar |
 | `Cmd+Shift+E` / `Cmd+Shift+F` / `Ctrl+Shift+G` | Explorer / search / git |
 | `Cmd+F` | Find in file |
-| `Cmd+Shift+V` | Toggle Markdown or SVG preview |
+| `Cmd+Shift+V` | Toggle Markdown or SVG preview (or the eye button on the tab bar) |
+| `Cmd+Enter` | Commit, in the Git panel |
 | `Cmd+K Cmd+T` | Theme |
 | `Space` | Play or pause video |
 

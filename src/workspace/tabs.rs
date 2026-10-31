@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use gpui_kit::{
     component::{
         WindowExt,
-        input::{EditorState, InputEvent, Position, TabSize},
+        input::{EditorState, InputEvent, Position, Rope, TabSize},
     },
     *,
 };
@@ -40,6 +40,7 @@ impl Workspace {
         };
         let ix = self.insert(Tab { path, name, body, pinned: pin }, window, cx);
         self.mark_changes(ix, cx);
+        self.check_licenses(ix, cx);
     }
 
     /// Browsing replaces the clean preview tab instead of piling up new tabs.
@@ -74,6 +75,7 @@ impl Workspace {
             Some(kind @ PreviewKind::Svg) => Some(kind.render(&text)),
             _ => None,
         };
+        let saved = Rope::from_str(&text);
         let editor = cx.new(|cx| {
             EditorState::new(window, cx)
                 .language(language)
@@ -85,26 +87,35 @@ impl Workspace {
                 })
                 .default_value(text)
         });
+        let licenses = crate::licenses::Lines::default();
+        if !readonly {
+            let hover = std::rc::Rc::new(super::licenses::LicenseHover(licenses.clone()));
+            editor.update(cx, |editor, _| editor.lsp_mut().hover_provider = Some(hover));
+        }
         let _subscription = cx.subscribe(&editor, |this, editor, e: &InputEvent, cx| {
             let InputEvent::Change = e else { return };
+            let current = editor.read(cx).text().clone();
             let Some(tab) = this.tabs.iter_mut().find(|t| t.text().is_some_and(|t| t.editor == editor)) else {
                 return;
             };
-            // Editing keeps the tab, as in VS Code.
-            tab.pinned = true;
             if let Body::Text(text) = &mut tab.body {
-                text.dirty = true;
+                text.dirty = current != text.saved;
+                // Editing keeps the tab, as in VS Code.
+                tab.pinned |= text.dirty;
             }
             cx.notify();
         });
         Body::Text(Text {
             editor,
             language,
+            saved,
             dirty: false,
             readonly,
             previewable,
             preview,
             git_marks: None,
+            blame: Vec::new(),
+            licenses,
             _subscription,
         })
     }
@@ -157,10 +168,13 @@ impl Workspace {
         if text.readonly {
             return true;
         }
-        match std::fs::write(&tab.path, text.editor.read(cx).text().to_string()) {
+        let current = text.editor.read(cx).text().clone();
+        match std::fs::write(&tab.path, current.to_string()) {
             Ok(()) => {
+                text.saved = current;
                 text.dirty = false;
                 self.mark_changes(ix, cx);
+                self.check_licenses(ix, cx);
                 cx.notify();
                 true
             }

@@ -22,7 +22,16 @@ actions!(
         ShowSearch,
         ShowGit,
         FileHistory,
-        TogglePlay
+        TogglePlay,
+        SwitchBranch,
+        NewBranch,
+        StashChanges,
+        PopStash,
+        GitFetch,
+        GitPull,
+        GitPush,
+        DependencyLicenses,
+        DependencyGraph
     ]
 );
 
@@ -57,12 +66,26 @@ pub fn menus() -> Vec<(&'static str, Vec<(&'static str, Box<dyn Action>)>)> {
                 ("Explorer", Box::new(ShowExplorer)),
                 ("Search in Folder", Box::new(ShowSearch)),
                 ("Source Control", Box::new(ShowGit)),
-                ("File History", Box::new(FileHistory)),
                 ("Toggle Sidebar", Box::new(ToggleSidebar)),
                 ("Next Tab", Box::new(NextTab)),
                 ("Previous Tab", Box::new(PrevTab)),
                 ("Toggle Preview", Box::new(TogglePreview)),
                 ("Select Theme", Box::new(SelectTheme)),
+                ("Dependency Licenses", Box::new(DependencyLicenses)),
+                ("Dependency Graph", Box::new(DependencyGraph)),
+            ],
+        ),
+        (
+            "Git",
+            vec![
+                ("Switch Branch…", Box::new(SwitchBranch)),
+                ("New Branch…", Box::new(NewBranch)),
+                ("Fetch", Box::new(GitFetch)),
+                ("Pull", Box::new(GitPull)),
+                ("Push", Box::new(GitPush)),
+                ("Stash Changes", Box::new(StashChanges)),
+                ("Pop Stash", Box::new(PopStash)),
+                ("File History", Box::new(FileHistory)),
             ],
         ),
     ]

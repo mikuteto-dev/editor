@@ -1,16 +1,22 @@
 mod git;
+mod licenses;
 mod pickers;
 mod render;
 mod sync;
 mod tabs;
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use gpui_kit::{component::WindowExt, *};
 
 use crate::{
     commands::Quit,
     git_panel::{GitEvent, GitPanel},
+    licenses::Report,
     recent,
     search::{OpenAt, SearchPanel},
     session::{self, Session},
@@ -33,7 +39,10 @@ pub struct Workspace {
     git: Option<(Entity<GitPanel>, Subscription)>,
     branch: Option<SharedString>,
     change_count: usize,
+    ahead_behind: Option<(u32, u32)>,
     status: Task<()>,
+    /// Dependency reports by manifest; `None` while one is being read.
+    reports: HashMap<PathBuf, Option<Arc<Report>>>,
     tabs: Vec<Tab>,
     active: usize,
     sidebar: bool,
@@ -58,7 +67,9 @@ impl Workspace {
             git: None,
             branch: None,
             change_count: 0,
+            ahead_behind: None,
             status: Task::ready(()),
+            reports: HashMap::new(),
             tabs: Vec::new(),
             active: 0,
             sidebar: true,
@@ -134,13 +145,20 @@ impl Workspace {
         });
         self.search = Some((search, opened));
 
-        let git = cx.new(|cx| GitPanel::new(root.clone(), cx));
+        let git = cx.new(|cx| GitPanel::new(root.clone(), window, cx));
         let picked = cx.subscribe_in(&git, window, |this, _, event, window, cx| match event {
             GitEvent::Diff(path) => this.open_diff(path.clone(), window, cx),
+            GitEvent::Open(path) => this.open(path.clone(), true, window, cx),
             GitEvent::Commit(hash) => this.open_commit(hash.clone(), None, window, cx),
+            GitEvent::PickBranch => this.pick_branch(window, cx),
+            GitEvent::Changed => {
+                this.load_status(cx);
+                this.load_branch(cx);
+            }
         });
         self.git = Some((git, picked));
 
+        self.reports.clear();
         self._watch = self.watch(&root, window, cx);
         self.root = Some(root.clone());
         self.load_branch(cx);

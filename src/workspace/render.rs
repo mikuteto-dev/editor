@@ -15,12 +15,16 @@ use gpui_kit::{
 use super::{Panel, Workspace};
 use crate::{
     commands::*,
+    git_panel::GitPanel,
     icons,
+    licenses::Verdict,
     tab::{Body, Tab, render_body},
     theme::{self, SelectTheme},
 };
 
 const BRANCH_ICON: &[u8] = include_bytes!("../../assets/ui/git-branch.svg");
+const EYE_ICON: &[u8] = include_bytes!("../../assets/ui/eye.svg");
+const CODE_ICON: &[u8] = include_bytes!("../../assets/ui/code.svg");
 
 impl Workspace {
     fn render_tabs(&self, cx: &mut Context<Self>) -> TabBar {
@@ -44,10 +48,24 @@ impl Workspace {
                 .prefix(img(icons::file(&tab.name)).size_4().ml_2())
                 .suffix(suffix)
         });
+        let text = self.tabs.get(self.active).and_then(Tab::text).filter(|t| t.previewable.is_some());
+        let preview = text.map(|text| {
+            let (svg, tip) = match text.preview {
+                Some(_) => (CODE_ICON, "Show Code"),
+                None => (EYE_ICON, "Show Preview"),
+            };
+            Button::new("preview")
+                .icon(Icon::default().data(svg))
+                .ghost()
+                .small()
+                .tooltip(tip)
+                .on_click(cx.listener(|this, _, window, cx| this.toggle_preview(&TogglePreview, window, cx)))
+        });
         TabBar::new("tabs")
             .selected_index(self.active)
             .on_click(cx.listener(|this, ix: &usize, window, cx| this.activate(*ix, window, cx)))
             .children(tabs)
+            .when_some(preview, |bar, button| bar.suffix(h_flex().h_full().px_1().child(button)))
     }
 
     fn render_activity(&self, cx: &App) -> Div {
@@ -128,13 +146,44 @@ impl Render for Workspace {
         };
         let activity = side.is_some().then(|| self.render_activity(cx));
         let side = side.filter(|_| self.sidebar);
+        let sync = match self.ahead_behind {
+            Some((ahead, behind)) if ahead + behind > 0 => format!("↑{ahead} ↓{behind}"),
+            _ => String::new(),
+        };
         let branch = self.branch.clone().map(|branch| {
-            h_flex().gap_1().child(Icon::default().data(BRANCH_ICON).size_3p5()).child(branch)
+            h_flex()
+                .id("branch")
+                .gap_1()
+                .px_1()
+                .rounded_sm()
+                .hover(|el| el.bg(theme.secondary_hover))
+                .child(Icon::default().data(BRANCH_ICON).size_3p5())
+                .child(branch)
+                .child(sync)
+                .on_click(cx.listener(|this, _, window, cx| this.pick_branch(window, cx)))
         });
         let position = tab.and_then(Tab::text).map(|text| {
             let pos = text.editor.read(cx).cursor_position();
+            // The caret on a dependency line names its license, no mouse needed; elsewhere, who last changed the line.
+            let note = match text.licenses.borrow().get(&pos.line) {
+                Some(line) => {
+                    let color = match line.verdict {
+                        Verdict::Ok => theme.muted_foreground,
+                        Verdict::Caution(_) | Verdict::Unknown(_) => theme.warning,
+                        Verdict::Conflict(_) => theme.danger,
+                    };
+                    Some(div().text_color(color).child(line.summary.clone()))
+                }
+                None => text
+                    .blame
+                    .get(pos.line as usize)
+                    .cloned()
+                    .flatten()
+                    .map(|blame| div().max_w(px(480.)).truncate().text_color(theme.muted_foreground).child(blame)),
+            };
             h_flex()
                 .gap_4()
+                .children(note)
                 .child(text.language)
                 .child(format!("Ln {}, Col {}", pos.line + 1, pos.character + 1))
         });
@@ -157,6 +206,15 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::toggle_preview))
             .on_action(cx.listener(Self::toggle_play))
             .on_action(cx.listener(Self::file_history))
+            .on_action(cx.listener(Self::show_licenses))
+            .on_action(cx.listener(Self::show_graph))
+            .on_action(cx.listener(|this, _: &SwitchBranch, window, cx| this.pick_branch(window, cx)))
+            .on_action(cx.listener(|this, _: &NewBranch, window, cx| this.new_branch(window, cx)))
+            .on_action(cx.listener(|this, _: &StashChanges, window, cx| this.with_git(GitPanel::stash, window, cx)))
+            .on_action(cx.listener(|this, _: &PopStash, window, cx| this.with_git(GitPanel::stash_pop, window, cx)))
+            .on_action(cx.listener(|this, _: &GitFetch, window, cx| this.with_git(GitPanel::fetch, window, cx)))
+            .on_action(cx.listener(|this, _: &GitPull, window, cx| this.with_git(GitPanel::pull, window, cx)))
+            .on_action(cx.listener(|this, _: &GitPush, window, cx| this.with_git(GitPanel::push, window, cx)))
             .on_action(|_: &SelectTheme, window, cx| theme::open_picker(window, cx))
             .on_action(cx.listener(|this, _: &NextTab, window, cx| this.cycle(1, window, cx)))
             .on_action(cx.listener(|this, _: &PrevTab, window, cx| this.cycle(-1, window, cx)))

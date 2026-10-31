@@ -307,7 +307,7 @@ fn status_map(root: &Path, changes: &[Change]) -> HashMap<PathBuf, char> {
 
 #[std::prelude::rust_2024::test]
 fn folders_take_the_status_inside() {
-    let change = |path: &str, status| Change { path: path.into(), status };
+    let change = |path: &str, status| Change { path: path.into(), status, staged: false, unstaged: true };
     let map = status_map(Path::new("/r"), &[change("/r/a/new.rs", 'U'), change("/r/b/c/x.rs", 'U'), change("/r/b/y.rs", 'M')]);
     assert_eq!(map[Path::new("/r/a")], 'U');
     assert_eq!(map[Path::new("/r/b/c")], 'U');

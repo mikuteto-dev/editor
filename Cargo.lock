@@ -1333,11 +1333,13 @@ checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 name = "editor"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "gpui-kit",
  "grep-matcher",
  "grep-regex",
  "grep-searcher",
  "ignore",
+ "lsp-types",
  "notify",
  "objc2 0.6.5",
  "objc2-av-foundation",
@@ -1345,6 +1347,8 @@ dependencies = [
  "objc2-core-media",
  "objc2-core-video",
  "objc2-foundation 0.3.2",
+ "serde_json",
+ "sha2 0.10.9",
  "smol",
 ]
 

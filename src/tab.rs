@@ -7,7 +7,7 @@ use gpui_kit::{
     component::{
         ActiveTheme,
         highlighter::Language,
-        input::{Editor, EditorState, RangeDecorationCollection},
+        input::{Editor, EditorState, RangeDecorationCollection, Rope},
         text::TextView,
     },
     *,
@@ -28,17 +28,25 @@ pub enum Body {
     Text(Text),
     Image,
     Video(Video),
+    Graph(Entity<crate::dep_graph::DepGraph>),
+    Diff(Entity<crate::diff_view::DiffView>),
 }
 
 pub struct Text {
     pub editor: Entity<EditorState>,
     pub language: &'static str,
+    /// What is on disk, so undoing back to it clears `dirty`.
+    pub saved: Rope,
     pub dirty: bool,
     pub readonly: bool,
     pub previewable: Option<PreviewKind>,
     // Rendered when toggled on, not on every keystroke.
     pub preview: Option<Preview>,
     pub git_marks: Option<RangeDecorationCollection>,
+    /// Who last changed each line, as of the last save.
+    pub blame: Vec<Option<SharedString>>,
+    /// Dependency licenses by line, shared with the editor's hover.
+    pub licenses: crate::licenses::Lines,
     pub _subscription: Subscription,
 }
 
@@ -79,7 +87,7 @@ impl Tab {
     pub fn text(&self) -> Option<&Text> {
         match &self.body {
             Body::Text(text) => Some(text),
-            Body::Image | Body::Video(_) => None,
+            Body::Image | Body::Video(_) | Body::Graph(_) | Body::Diff(_) => None,
         }
     }
 
@@ -106,6 +114,8 @@ pub fn render_body(tab: &Tab, cx: &App) -> Div {
         Body::Image => body.child(view(tab.path.clone().into())),
         // Drawn by the workspace, which can hand the player a mutable window.
         Body::Video(_) => body,
+        Body::Graph(view) => body.child(view.clone()),
+        Body::Diff(view) => body.child(view.clone()),
         Body::Text(Text { preview: Some(Preview::Svg(image)), .. }) => {
             body.child(view(image.clone().into()))
         }
