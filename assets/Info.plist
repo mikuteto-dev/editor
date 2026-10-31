@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>Editor</string>
+	<key>CFBundleIdentifier</key>
+	<string>app.editor</string>
+	<key>CFBundleExecutable</key>
+	<string>editor</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.developer-tools</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Source Code</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Default</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>app.editor.rust</string>
+				<string>app.editor.go</string>
+				<string>app.editor.csharp</string>
+				<string>app.editor.kotlin</string>
+				<string>app.editor.lua</string>
+				<string>app.editor.scss</string>
+				<string>app.editor.jsonc</string>
+				<string>app.editor.mdx</string>
+				<string>app.editor.jsx</string>
+				<string>app.editor.cjs</string>
+				<string>app.editor.cts</string>
+				<string>public.python-script</string>
+				<string>com.netscape.javascript-source</string>
+				<string>com.microsoft.typescript</string>
+				<!-- macOS maps .ts to MPEG-2 video; TypeScript files carry this type. -->
+				<string>public.mpeg-2-transport-stream</string>
+				<string>com.sun.java-source</string>
+				<string>public.c-source</string>
+				<string>public.c-header</string>
+				<string>public.c-plus-plus-source</string>
+				<string>public.c-plus-plus-header</string>
+				<string>public.css</string>
+				<string>public.json</string>
+				<string>net.daringfireball.markdown</string>
+				<string>public.yaml</string>
+				<string>public.toml</string>
+				<string>public.php-script</string>
+				<string>public.ruby-script</string>
+				<string>public.swift-source</string>
+				<string>public.shell-script</string>
+				<string>public.bash-script</string>
+				<string>public.zsh-script</string>
+				<string>org.iso.sql</string>
+			</array>
+		</dict>
+		<!-- Listed under "Open With" only: owning HTML would make this the default browser. -->
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>HTML</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.html</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Folder</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>None</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.folder</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Extensions macOS has no type for. -->
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key><string>app.editor.rust</string>
+			<key>UTTypeDescription</key><string>Rust Source</string>
+			<key>UTTypeConformsTo</key><array><string>public.source-code</string></array>
+			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>rs</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key><string>app.editor.go</string>
+			<key>UTTypeDescription</key><string>Go Source</string>
+			<key>UTTypeConformsTo</key><array><string>public.source-code</string></array>
+			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>go</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key><string>app.editor.csharp</string>
+			<key>UTTypeDescription</key><string>C# Source</string>
+			<key>UTTypeConformsTo</key><array><string>public.source-code</string></array>
+			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>cs</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key><string>app.editor.kotlin</string>
+			<key>UTTypeDescription</key><string>Kotlin Source</string>
+			<key>UTTypeConformsTo</key><array><string>public.source-code</string></array>
+			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>kt</string><string>kts</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key><string>app.editor.lua</string>
+			<key>UTTypeDescription</key><string>Lua Source</string>
+			<key>UTTypeConformsTo</key><array><string>public.source-code</string></array>
+			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>lua</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key><string>app.editor.scss</string>
+			<key>UTTypeDescription</key><string>SCSS Stylesheet</string>
+			<key>UTTypeConformsTo</key><array><string>public.source-code</string></array>
+			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>scss</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key><string>app.editor.jsonc</string>
+			<key>UTTypeDescription</key><string>JSON with Comments</string>
+			<key>UTTypeConformsTo</key><array><string>public.source-code</string></array>
+			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>jsonc</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key><string>app.editor.mdx</string>
+			<key>UTTypeDescription</key><string>MDX Document</string>
+			<key>UTTypeConformsTo</key><array><string>public.source-code</string></array>
+			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>mdx</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key><string>app.editor.jsx</string>
+			<key>UTTypeDescription</key><string>JSX Source</string>
+			<key>UTTypeConformsTo</key><array><string>public.source-code</string></array>
+			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>jsx</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key><string>app.editor.cjs</string>
+			<key>UTTypeDescription</key><string>CommonJS Source</string>
+			<key>UTTypeConformsTo</key><array><string>public.source-code</string></array>
+			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>cjs</string></array></dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key><string>app.editor.cts</string>
+			<key>UTTypeDescription</key><string>TypeScript Source</string>
+			<key>UTTypeConformsTo</key><array><string>public.source-code</string></array>
+			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>cts</string></array></dict>
+		</dict>
+	</array>
+</dict>
+</plist>
