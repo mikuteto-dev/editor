@@ -1,5 +1,3 @@
-//! Programs the user runs from a terminal, found where the terminal finds them.
-
 use std::{
     ffi::OsString,
     path::{Path, PathBuf},

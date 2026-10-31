@@ -7,8 +7,8 @@ use std::{
 use gpui_kit::{
     base::input::{Diagnostic, DiagnosticSeverity},
     component::{
-        WindowExt,
-        input::{HoverProvider, Position, Rope, RopeExt},
+        ActiveTheme, WindowExt,
+        input::{HoverProvider, Position, RangeDecoration, RangeDecorationStyle, Rope, RopeExt},
     },
     *,
 };
@@ -22,7 +22,6 @@ use crate::{
     tab::{Body, PreviewKind, Tab},
 };
 
-/// Shows a line's dependency license wherever the mouse rests on that line.
 pub struct LicenseHover(pub Lines);
 
 impl HoverProvider for LicenseHover {
@@ -37,7 +36,6 @@ impl HoverProvider for LicenseHover {
 }
 
 impl Workspace {
-    /// Marks each dependency a manifest names or a source file imports with its license.
     /// One report per manifest serves every open file under it.
     pub(super) fn check_licenses(&mut self, ix: usize, cx: &mut Context<Self>) {
         let (Some(root), Some(tab)) = (self.root.clone(), self.tabs.get(ix)) else { return };
@@ -94,8 +92,9 @@ impl Workspace {
             let usage = if dep.shipped { "" } else { " · dev only" };
             let license = dep.license.as_deref().unwrap_or("no license");
             let summary = format!("{}{version} · {license}{usage}", dep.name);
+            let label = format!("{license}{usage}");
             let range = Position::new(m.line, m.cols.start)..Position::new(m.line, m.cols.end);
-            let line = Line { summary, verdict };
+            let line = Line { summary, label, verdict };
             if let Some(severity) = severity(&line.verdict) {
                 diagnostics.push(Diagnostic::new(range, line.markdown()).with_severity(severity));
             }
@@ -110,20 +109,49 @@ impl Workspace {
             .map(|d| format!("{} {} ({})", d.name, d.version, d.license.as_deref().unwrap_or("no license")))
             .collect();
         if let Some(m) = own_line {
-            let summary = format!("This package: {}", own.unwrap_or("no license"));
+            let label = own.unwrap_or("no license").to_string();
+            let summary = format!("This package: {label}");
             let verdict = match deep.is_empty() {
                 true => Verdict::Ok,
                 false => Verdict::Conflict(format!("Indirect dependencies conflict with it:\n\n{}", deep.join("\n\n"))),
             };
-            let line = Line { summary, verdict };
+            let line = Line { summary, label, verdict };
             if let Some(severity) = severity(&line.verdict) {
                 let range = Position::new(m.line, m.cols.start)..Position::new(m.line, m.cols.end);
                 diagnostics.push(Diagnostic::new(range, line.markdown()).with_severity(severity));
             }
             lines.insert(m.line, line);
         }
+        let theme = cx.theme();
+        let rope = text.editor.read(cx).text().clone();
+        let labels = lines
+            .iter()
+            .map(|(&line, l)| {
+                let color = match l.verdict {
+                    Verdict::Ok => theme.muted_foreground.opacity(0.7),
+                    Verdict::Caution(_) | Verdict::Unknown(_) => theme.warning,
+                    Verdict::Conflict(_) => theme.danger,
+                };
+                let start = rope.position_to_offset(&Position::new(line, 0));
+                let end = rope.position_to_offset(&Position::new(line + 1, 0));
+                RangeDecoration::new(start..end)
+                    .with_style(RangeDecorationStyle::Label)
+                    .with_color(color)
+                    .with_label(l.label.clone())
+            })
+            .collect();
         text.licenses.replace(lines);
-        text.editor.update(cx, |editor, cx| {
+        let editor = text.editor.clone();
+        match &text.license_labels {
+            Some(set) => set.set(labels, cx),
+            None => {
+                let set = editor.update(cx, |editor, cx| editor.create_range_decorations_collection(labels, cx));
+                if let Body::Text(text) = &mut self.tabs[ix].body {
+                    text.license_labels = Some(set);
+                }
+            }
+        }
+        editor.update(cx, |editor, cx| {
             let rope = editor.text().clone();
             if let Some(set) = editor.diagnostics_mut() {
                 set.reset(&rope);
@@ -134,7 +162,6 @@ impl Workspace {
         cx.notify();
     }
 
-    /// The manifest of the active file's package, or of the folder itself.
     fn pick_manifest(&self) -> Option<PathBuf> {
         let root = self.root.clone()?;
         let active = self.tabs.get(self.active).and_then(|t| licenses::manifest_for(&t.path, &root));
@@ -217,7 +244,6 @@ fn page(report: &Report) -> String {
         .iter()
         .map(|d| (if d.shipped { verdict(own, d.license.as_deref()) } else { Verdict::Ok }, d))
         .collect();
-    // Problems first, then grouped by license.
     rows.sort_by(|(va, a), (vb, b)| vb.cmp(va).then_with(|| a.license.cmp(&b.license)).then_with(|| a.name.cmp(&b.name)));
     let problems = rows.iter().filter(|(v, _)| *v != Verdict::Ok).count();
     let mut out = format!(

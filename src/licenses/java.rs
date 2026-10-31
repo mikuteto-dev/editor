@@ -74,7 +74,6 @@ fn pom_dependencies(pom: &str) -> Vec<Coordinate> {
         .collect()
 }
 
-/// `group:artifact:version` strings and the configuration they are declared under.
 fn gradle_lines(text: &str) -> impl Iterator<Item = (usize, &str, &str)> {
     text.lines().enumerate().filter_map(|(line, raw)| {
         let t = raw.trim_start();

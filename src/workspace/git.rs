@@ -13,7 +13,7 @@ use gpui_kit::{
 use super::Workspace;
 use crate::{
     commands::FileHistory,
-    diff_view::{DiffView, Part},
+    diff_view::{self, DiffView, Part},
     git::{self, CommitInfo, LineChange},
     git_panel::GitPanel,
     palette,
@@ -56,8 +56,7 @@ impl Workspace {
         });
     }
 
-    /// Tints lines that differ from HEAD. The editor moves the ranges along
-    /// with edits, so this reruns only on save and repository changes.
+    /// The editor moves the ranges along with edits, so this reruns only on save and repository changes.
     pub(super) fn mark_changes(&mut self, ix: usize, cx: &mut Context<Self>) {
         let Some(root) = self.root.clone() else { return };
         let Some(Body::Text(text)) = self.tabs.get(ix).map(|t| &t.body) else { return };
@@ -70,7 +69,7 @@ impl Workspace {
                 .background_spawn(async move { (git::line_changes(&root, &path), git::blame(&root, &path)) })
                 .await;
             this.update(cx, |this, cx| {
-                let (green, blue) = (cx.theme().green.opacity(0.22), cx.theme().blue.opacity(0.22));
+                let (green, blue) = (cx.theme().green, cx.theme().blue);
                 let rope = editor.read(cx).text().clone();
                 let decorations = changes
                     .into_iter()
@@ -82,7 +81,7 @@ impl Workspace {
                             LineChange::Modified => blue,
                         };
                         RangeDecoration::new(start..end)
-                            .with_style(RangeDecorationStyle::Fill)
+                            .with_style(RangeDecorationStyle::Gutter)
                             .with_color(color)
                     })
                     .collect();
@@ -115,7 +114,7 @@ impl Workspace {
         let title = format!("{name} (diff)");
         // A synthetic path keys the tab so it never collides with the file itself.
         let key = PathBuf::from(format!("git-diff:{}", path.display()));
-        let diff = cx.background_spawn(async move { (None, DiffView::load(&git::diff(&root, &path))) });
+        let diff = cx.background_spawn(async move { (None, diff_view::load(&git::diff(&root, &path))) });
         // Always rebuilt: the working copy may have changed since the last look.
         self.open_patch(key, title, diff, window, cx);
     }
@@ -135,12 +134,11 @@ impl Workspace {
         }
         let title = hash.clone();
         let loaded = cx.background_spawn(async move {
-            (git::commit_info(&root, &hash), DiffView::load(&git::show(&root, &hash, file.as_deref())))
+            (git::commit_info(&root, &hash), diff_view::load(&git::show(&root, &hash, file.as_deref())))
         });
         self.open_patch(key, title, loaded, window, cx);
     }
 
-    /// Opens a diff tab once git has produced and parsed it, without holding up the window meanwhile.
     fn open_patch(
         &mut self,
         key: PathBuf,

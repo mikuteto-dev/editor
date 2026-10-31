@@ -47,7 +47,6 @@ fn rock_trees(dir: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
-/// The version, license and modules of a rock installed at `<tree>/<name>/<version>/`.
 fn installed_rock(rock: &Path) -> Option<(String, Option<String>, Vec<String>)> {
     let version = std::fs::read_dir(rock).ok()?.flatten().next()?.path();
     let spec = std::fs::read_dir(&version).ok()?.flatten().map(|e| e.path()).find(|p| p.extension().is_some_and(|e| e == "rockspec"))?;

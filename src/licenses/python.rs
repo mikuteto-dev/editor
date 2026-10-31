@@ -16,7 +16,6 @@ pub fn report(manifest: &Path) -> Option<Report> {
         .flat_map(|sp| dist_infos(sp))
         .map(|d| (norm(&d.name), d))
         .collect();
-    // A lockfile names every package and which ones only development needs.
     let locked = uv_lock(dir).or_else(|| poetry_lock(dir)).or_else(|| pipfile_lock(dir));
     let (deps, requires, mut roots) = match locked {
         Some(locked) => {
@@ -134,7 +133,6 @@ fn own_license(manifest: &str) -> Option<String> {
     normalize(quoted(line).last()?)
 }
 
-/// Names declared only for development: dependency groups and the tools' dev lists.
 fn dev_names(manifest: &str) -> HashSet<String> {
     let mut dev = HashSet::new();
     let mut section = "";
@@ -229,7 +227,6 @@ fn uv_lock(dir: &Path) -> Option<Locked> {
     })
 }
 
-/// A lockfile's packages (name, version, shipped), what each requires, and what the project requires.
 #[derive(Debug, PartialEq)]
 struct Locked {
     packages: Vec<(String, String, bool)>,
@@ -292,7 +289,6 @@ fn requirement(spec: &str) -> &str {
     &spec[..end]
 }
 
-/// pyproject.toml, Pipfile and requirements.txt.
 pub fn mentions(text: &str) -> (Vec<Mention>, Option<Mention>) {
     let toml = text.lines().any(|l| l.starts_with('['));
     let mut deps = Vec::new();
@@ -368,7 +364,6 @@ fn reads_environment_and_lockfiles() {
         (&format!("{site}/PyYAML-6.0.dist-info/METADATA"), "Name: PyYAML\nVersion: 6.0\nLicense: MIT\n\nbody"),
         (&format!("{site}/PyYAML-6.0.dist-info/top_level.txt"), "_yaml\nyaml\n"),
         (&format!("{site}/foo-1.dist-info/METADATA"), "Name: foo\nVersion: 1\nClassifier: License :: OSI Approved :: BSD License\n\n"),
-        // No top_level.txt: the modules come from RECORD.
         (&format!("{site}/foo-1.dist-info/RECORD"), "foo_core/__init__.py,sha256=x,1\nfoo-1.dist-info/METADATA,,\n"),
         (&format!("{site}/pytest-8.dist-info/METADATA"), "Name: pytest\nVersion: 8.0\nLicense-Expression: MIT\n\n"),
     ]);

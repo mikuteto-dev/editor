@@ -28,7 +28,6 @@ pub fn report(manifest: &Path) -> Option<Report> {
     Some(Report::flat(license_file(dir), deps))
 }
 
-/// Names of the targets and products a Package.swift declares.
 fn targets(manifest: &str) -> Vec<String> {
     let mut names: Vec<String> = [".target(", ".library(", ".executableTarget("]
         .iter()

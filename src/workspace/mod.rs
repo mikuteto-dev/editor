@@ -21,7 +21,7 @@ use crate::{
     search::{OpenAt, SearchPanel},
     session::{self, Session},
     tab::Tab,
-    tree::{FileTree, OpenFile},
+    tree::{FileTree, TreeEvent},
     watch::Watch,
 };
 
@@ -83,8 +83,7 @@ impl Workspace {
         this
     }
 
-    /// Opens a path from Finder, the Dock or the command line. A file joins
-    /// the tabs and only picks the folder when none is open yet.
+    /// A file only picks the folder when none is open yet.
     pub fn open_path(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
         if path.is_dir() {
             return self.switch(path, window, cx);
@@ -134,8 +133,10 @@ impl Workspace {
         }
 
         let tree = cx.new(|cx| FileTree::new(root.clone(), cx));
-        let opened = cx.subscribe_in(&tree, window, |this, _, OpenFile { path, pin }, window, cx| {
-            this.open(path.clone(), *pin, window, cx)
+        let opened = cx.subscribe_in(&tree, window, |this, _, event, window, cx| match event {
+            TreeEvent::Open { path, pin } => this.open(path.clone(), *pin, window, cx),
+            TreeEvent::Renamed { from, to } => this.moved(from, to, window, cx),
+            TreeEvent::Deleted(path) => this.deleted(path, window, cx),
         });
         self.tree = Some((tree, opened));
 

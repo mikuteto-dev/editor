@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use gpui_kit::{
     component::{
@@ -116,6 +116,7 @@ impl Workspace {
             git_marks: None,
             blame: Vec::new(),
             licenses,
+            license_labels: None,
             _subscription,
         })
     }
@@ -158,6 +159,8 @@ impl Workspace {
         if let Some((tree, _)) = &self.tree {
             tree.update(cx, |tree, cx| tree.select(path, cx));
         }
+        // Saved on every change, not at quit: quitting from the Dock or by logging out skips our Quit.
+        self.save_session(window, cx);
         cx.notify();
     }
 
@@ -183,6 +186,22 @@ impl Workspace {
                 false
             }
         }
+    }
+
+    pub(super) fn moved(&mut self, from: &Path, to: &Path, window: &mut Window, cx: &mut Context<Self>) {
+        for tab in &mut self.tabs {
+            if let Ok(rest) = tab.path.strip_prefix(from) {
+                tab.path = if rest.as_os_str().is_empty() { to.to_path_buf() } else { to.join(rest) };
+                tab.name = tab.path.file_name().unwrap_or_default().to_string_lossy().into_owned().into();
+            }
+        }
+        self.activate(self.active, window, cx);
+    }
+
+    /// Closes what was moved to the Trash, except tabs holding unsaved edits.
+    pub(super) fn deleted(&mut self, path: &Path, window: &mut Window, cx: &mut Context<Self>) {
+        self.tabs.retain(|t| !t.path.starts_with(path) || t.dirty());
+        self.activate(self.active.min(self.tabs.len().saturating_sub(1)), window, cx);
     }
 
     fn remove(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {

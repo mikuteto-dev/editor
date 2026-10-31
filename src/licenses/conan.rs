@@ -47,7 +47,6 @@ pub fn report(manifest: &Path) -> Option<Report> {
     Some(Report::flat(own, deps))
 }
 
-/// Licenses of the recipes in the local Conan cache, by package name.
 fn recipes() -> HashMap<String, Option<String>> {
     let Some(home) = std::env::home_dir() else { return HashMap::new() };
     // Conan 2 keeps each exported recipe in p/<hash>/e/; Conan 1 in data/<name>/<version>/<user>/<channel>/export/.

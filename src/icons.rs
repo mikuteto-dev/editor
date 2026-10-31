@@ -1,141 +1,147 @@
-use std::{collections::HashMap, sync::Arc, sync::LazyLock};
+//! File and folder icons from Material Icon Theme, matched the way VS Code matches them:
+//! exact file names, then the longest extension, then the language.
+
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::{Arc, LazyLock, Mutex},
+};
 
 use gpui_kit::{Image, ImageFormat};
+use serde_json::Value;
 
-macro_rules! icons {
-    ($($name:literal),* $(,)?) => {
-        &[$(($name, include_bytes!(concat!("../assets/icons/", $name, ".svg")))),*]
-    };
+use crate::tab::language;
+
+struct Theme {
+    dir: PathBuf,
+    files: HashMap<String, String>,
+    file_names: HashMap<String, String>,
+    extensions: HashMap<String, String>,
+    languages: HashMap<String, String>,
+    folder_names: HashMap<String, String>,
+    folder_names_open: HashMap<String, String>,
+    file: String,
+    folder: String,
+    folder_open: String,
 }
 
-const SOURCES: &[(&str, &[u8])] = icons!(
-    "authors", "bun", "c", "changelog", "citation", "claude", "conduct", "console",
-    "contributing", "cpp", "credits", "csharp", "css", "database", "docker", "document",
-    "editorconfig", "eslint", "folder", "gemfile", "git", "go", "go-mod", "gradle", "h", "hpp",
-    "html", "image", "java", "javascript", "json", "kotlin", "license", "lock", "lua",
-    "makefile", "markdown", "maven", "npm", "php", "pnpm", "prettier", "python", "react",
-    "react_ts", "readme", "roadmap", "ruby", "rust", "sass", "settings", "svg", "swift", "todo",
-    "toml", "tsconfig", "typescript", "video", "vite", "xml", "yaml", "yarn",
-);
+/// Next to the binary in Editor.app; in the source tree when run with cargo.
+fn icon_dir() -> PathBuf {
+    let exe = std::env::current_exe().unwrap_or_default();
+    let bundled = exe.parent().and_then(Path::parent).map(|contents| contents.join("Resources/icons"));
+    let source = exe.ancestors().map(|dir| dir.join("assets/icons")).find(|dir| dir.join("material-icons.json").is_file());
+    bundled.filter(|dir| dir.is_dir()).or(source).unwrap_or_default()
+}
 
-static IMAGES: LazyLock<HashMap<&str, Arc<Image>>> = LazyLock::new(|| {
-    SOURCES
-        .iter()
-        .map(|(name, svg)| (*name, Arc::new(Image::from_bytes(ImageFormat::Svg, svg.to_vec()))))
-        .collect()
+static THEME: LazyLock<Theme> = LazyLock::new(|| {
+    let dir = icon_dir();
+    let manifest: Value = std::fs::read_to_string(dir.join("material-icons.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default();
+    // VS Code compares names without case.
+    let map = |key: &str| -> HashMap<String, String> {
+        let entries = manifest[key].as_object().into_iter().flatten();
+        entries.filter_map(|(k, v)| Some((k.to_lowercase(), v.as_str()?.to_string()))).collect()
+    };
+    let files = manifest["iconDefinitions"]
+        .as_object()
+        .into_iter()
+        .flatten()
+        .filter_map(|(id, def)| Some((id.clone(), def["iconPath"].as_str()?.rsplit('/').next()?.to_string())))
+        .collect();
+    let id = |key: &str, fallback: &str| manifest[key].as_str().unwrap_or(fallback).to_string();
+    Theme {
+        files,
+        file_names: map("fileNames"),
+        extensions: map("fileExtensions"),
+        languages: map("languageIds"),
+        folder_names: map("folderNames"),
+        folder_names_open: map("folderNamesExpanded"),
+        file: id("file", "file"),
+        folder: id("folder", "folder"),
+        folder_open: id("folderExpanded", "folder-open"),
+        dir,
+    }
 });
 
-pub fn folder() -> Arc<Image> {
-    IMAGES["folder"].clone()
+/// Images by icon id, read from disk the first time one is shown.
+static IMAGES: LazyLock<Mutex<HashMap<String, Arc<Image>>>> = LazyLock::new(Mutex::default);
+
+fn image(id: &str) -> Arc<Image> {
+    let theme = &*THEME;
+    let mut images = IMAGES.lock().unwrap();
+    if let Some(image) = images.get(id) {
+        return image.clone();
+    }
+    let file = theme.files.get(id).cloned().unwrap_or_else(|| format!("{id}.svg"));
+    let bytes = std::fs::read(theme.dir.join(file)).unwrap_or_default();
+    let image = Arc::new(Image::from_bytes(ImageFormat::Svg, bytes));
+    images.insert(id.to_string(), image.clone());
+    image
+}
+
+pub fn folder(name: &str, open: bool) -> Arc<Image> {
+    image(&folder_icon(name, open))
 }
 
 pub fn file(name: &str) -> Arc<Image> {
-    IMAGES[file_icon(name)].clone()
+    image(&file_icon(name))
 }
 
-fn file_icon(name: &str) -> &'static str {
-    let lower = name.to_ascii_lowercase();
-    // Well-known docs keep their meaning whatever the extension (README, README.md, readme.txt).
-    let stem = lower.split('.').next().unwrap_or_default();
-    let by_stem = match stem {
-        "readme" => Some("readme"),
-        "changelog" | "changes" | "history" => Some("changelog"),
-        "contributing" => Some("contributing"),
-        s if s.starts_with("license") || s.starts_with("licence") || s == "copying" => Some("license"),
-        "code_of_conduct" => Some("conduct"),
-        "todo" => Some("todo"),
-        "authors" | "contributors" => Some("authors"),
-        "claude" => Some("claude"),
-        "roadmap" => Some("roadmap"),
-        "credits" => Some("credits"),
-        "citation" => Some("citation"),
-        "vite" if lower.starts_with("vite.config.") => Some("vite"),
-        "eslint" if lower.starts_with("eslint.config.") => Some("eslint"),
-        _ => None,
+fn folder_icon(name: &str, open: bool) -> String {
+    let theme = &*THEME;
+    let (names, default) = if open { (&theme.folder_names_open, &theme.folder_open) } else { (&theme.folder_names, &theme.folder) };
+    names.get(&name.to_lowercase()).unwrap_or(default).clone()
+}
+
+fn file_icon(name: &str) -> String {
+    let theme = &*THEME;
+    let lower = name.to_lowercase();
+    if let Some(id) = theme.file_names.get(&lower) {
+        return id.clone();
+    }
+    // The longest extension wins: "test.ts" before "ts", "d.ts" before "ts".
+    let dots = lower.char_indices().filter(|(_, c)| *c == '.').map(|(i, _)| i);
+    if let Some(id) = dots.filter_map(|i| theme.extensions.get(&lower[i + 1..])).next() {
+        return id.clone();
+    }
+    let language = match language(Path::new(name)) {
+        "bash" => "shellscript",
+        "tsx" => "typescriptreact",
+        "make" => "makefile",
+        other => other,
     };
-    if let Some(icon) = by_stem {
-        return icon;
-    }
-    match lower.as_str() {
-        "dockerfile" | "compose.yml" | "compose.yaml" | "docker-compose.yml" => return "docker",
-        ".gitignore" | ".gitattributes" | ".gitmodules" => return "git",
-        "package.json" | "package-lock.json" | ".npmrc" => return "npm",
-        "pnpm-lock.yaml" | "pnpm-workspace.yaml" => return "pnpm",
-        "bun.lock" | "bun.lockb" | "bunfig.toml" => return "bun",
-        "yarn.lock" | ".yarnrc" | ".yarnrc.yml" => return "yarn",
-        "go.mod" | "go.sum" => return "go-mod",
-        "tsconfig.json" => return "tsconfig",
-        ".prettierrc" | ".prettierrc.json" | "prettier.config.js" => return "prettier",
-        ".eslintrc" | ".eslintrc.json" | ".eslintrc.js" => return "eslint",
-        ".editorconfig" => return "editorconfig",
-        "makefile" | "gnumakefile" => return "makefile",
-        "gemfile" | "gemfile.lock" => return "gemfile",
-        "build.gradle" | "build.gradle.kts" | "settings.gradle" => return "gradle",
-        "pom.xml" => return "maven",
-        _ => {}
-    }
-    let ext = lower.rsplit_once('.').map_or("", |(_, ext)| ext);
-    match ext {
-        "rs" => "rust",
-        "py" => "python",
-        "js" | "mjs" | "cjs" => "javascript",
-        "jsx" => "react",
-        "ts" | "mts" | "cts" => "typescript",
-        "tsx" => "react_ts",
-        "go" => "go",
-        "java" => "java",
-        "c" => "c",
-        "cpp" | "cc" | "cxx" => "cpp",
-        "h" => "h",
-        "hpp" | "hh" => "hpp",
-        "cs" => "csharp",
-        "css" => "css",
-        "scss" | "sass" => "sass",
-        "html" | "htm" => "html",
-        "json" | "jsonc" => "json",
-        "md" | "mdx" => "markdown",
-        "yml" | "yaml" => "yaml",
-        "toml" => "toml",
-        "php" => "php",
-        "rb" => "ruby",
-        "swift" => "swift",
-        "kt" | "kts" => "kotlin",
-        "lua" => "lua",
-        "sh" | "bash" | "zsh" | "fish" => "console",
-        "sql" => "database",
-        "png" | "jpg" | "jpeg" | "gif" | "webp" | "ico" | "bmp" | "tif" | "tiff" => "image",
-        "mp4" | "mov" | "m4v" | "webm" | "mkv" => "video",
-        "svg" => "svg",
-        "xml" => "xml",
-        "lock" => "lock",
-        "ini" | "conf" | "cfg" | "env" => "settings",
-        _ => "document",
-    }
+    theme.languages.get(language).unwrap_or(&theme.file).clone()
 }
 
-#[test]
-fn file_icons() {
-    assert_eq!(file_icon("main.rs"), "rust");
-    assert_eq!(file_icon("README.md"), "readme");
-    assert_eq!(file_icon("App.TSX"), "react_ts");
-    assert_eq!(file_icon("Dockerfile"), "docker");
-    assert_eq!(file_icon("Makefile"), "makefile");
-    assert_eq!(file_icon(".env"), "settings");
-    assert_eq!(file_icon("CHANGELOG.md"), "changelog");
-    assert_eq!(file_icon("LICENSE-APACHE"), "license");
-    assert_eq!(file_icon("CODE_OF_CONDUCT.md"), "conduct");
-    assert_eq!(file_icon("CLAUDE.md"), "claude");
-    assert_eq!(file_icon("AGENTS.md"), "markdown");
-    assert_eq!(file_icon("vite.config.ts"), "vite");
-    assert_eq!(file_icon("package.json"), "npm");
-    // Every mapped name must exist, or `IMAGES[..]` panics at runtime.
-    let names = "a.rs a.py a.js a.jsx a.ts a.tsx a.go a.java a.c a.cpp a.h a.hpp a.cs a.css a.scss \
-                 a.html a.json a.md a.yml a.toml a.php a.rb a.swift a.kt a.lua a.sh a.sql a.png \
-                 a.svg a.xml a.lock a.ini a.mp4 README CHANGES LICENSE CODE_OF_CONDUCT.md TODO \
-                 AUTHORS CLAUDE.md ROADMAP.md CREDITS CITATION.cff vite.config.js eslint.config.js \
-                 package.json pnpm-lock.yaml bun.lock yarn.lock go.mod tsconfig.json .prettierrc \
-                 .eslintrc .editorconfig Makefile Gemfile build.gradle pom.xml Dockerfile .gitignore";
-    for name in names.split_whitespace() {
-        assert!(IMAGES.contains_key(file_icon(name)), "{name}");
+#[std::prelude::rust_2024::test]
+fn matches_like_vs_code() {
+    let cases = [
+        ("main.rs", "rust"),
+        ("README.md", "readme"),
+        ("Cargo.toml", "toml"),
+        ("package.json", "nodejs"),
+        ("App.tsx", "react_ts"),
+        ("app.test.ts", "test-ts"),
+        ("types.d.ts", "typescript-def"),
+        ("Dockerfile", "docker"),
+        ("AGENTS.md", "agent"),
+        ("history.rs", "rust"),
+        ("report.pdf", "pdf"),
+        ("data.csv", "table"),
+        ("App.vue", "vue"),
+        ("unknown.zzz", "file"),
+    ];
+    for (name, id) in cases {
+        assert_eq!(file_icon(name), id, "{name}");
+    }
+    assert_eq!(folder_icon("src", false), "folder-src");
+    assert_eq!(folder_icon("src", true), "folder-src-open");
+    assert_eq!(folder_icon("whatever", false), "folder");
+    // Every icon the theme names has its SVG.
+    let theme = &*THEME;
+    for file in theme.files.values().filter(|f| !f.contains("_light") && !f.contains("highContrast")) {
+        assert!(theme.dir.join(file).is_file(), "{file}");
     }
 }

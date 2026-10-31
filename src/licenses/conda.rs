@@ -60,7 +60,6 @@ fn environments(dir: &Path, manifest: &str) -> Vec<PathBuf> {
     envs
 }
 
-/// pixi.toml dependency tables, or environment.yml's dependency list and its pip sublist.
 pub fn mentions(text: &str) -> (Vec<Mention>, Option<Mention>) {
     let mut deps = Vec::new();
     let mut own = None;

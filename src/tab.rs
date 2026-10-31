@@ -8,7 +8,6 @@ use gpui_kit::{
         ActiveTheme,
         highlighter::Language,
         input::{Editor, EditorState, RangeDecorationCollection, Rope},
-        text::TextView,
     },
     *,
 };
@@ -43,10 +42,9 @@ pub struct Text {
     // Rendered when toggled on, not on every keystroke.
     pub preview: Option<Preview>,
     pub git_marks: Option<RangeDecorationCollection>,
-    /// Who last changed each line, as of the last save.
     pub blame: Vec<Option<SharedString>>,
-    /// Dependency licenses by line, shared with the editor's hover.
     pub licenses: crate::licenses::Lines,
+    pub license_labels: Option<RangeDecorationCollection>,
     pub _subscription: Subscription,
 }
 
@@ -121,13 +119,7 @@ pub fn render_body(tab: &Tab, cx: &App) -> Div {
         }
         Body::Text(Text { preview: Some(Preview::Markdown(source)), .. }) => body.child(
             div().size_full().flex().justify_center().child(
-                TextView::markdown("markdown", source.clone())
-                    .scrollable(true)
-                    .selectable(true)
-                    .w_full()
-                    .max_w(px(820.))
-                    .px_8()
-                    .py_6(),
+                crate::markdown::view(source.clone(), cx),
             ),
         ),
         Body::Text(text) => body.child(

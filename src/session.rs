@@ -4,7 +4,6 @@ use crate::config_dir;
 
 const LIMIT: usize = 50;
 
-/// The tabs a folder had open, so reopening it picks up where it was left.
 #[derive(Debug, PartialEq)]
 pub struct Session {
     pub tabs: Vec<PathBuf>,

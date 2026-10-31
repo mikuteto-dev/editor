@@ -45,7 +45,6 @@ fn nuspec_license(dir: &Path, id: &str) -> Option<String> {
     }
 }
 
-/// The text of the first `<name>` element.
 pub(super) fn tag<'a>(xml: &'a str, name: &str) -> Option<&'a str> {
     let open = format!("<{name}");
     // `<license` must not match `<licenseUrl`.
@@ -56,7 +55,6 @@ pub(super) fn tag<'a>(xml: &'a str, name: &str) -> Option<&'a str> {
     Some(rest.get(start..end)?.trim())
 }
 
-/// PackageReference lines: line number, package id, version.
 fn references(project: &str) -> impl Iterator<Item = (usize, &str, &str)> {
     project.lines().enumerate().filter_map(|(line, raw)| {
         // Central package management puts versions in Directory.Packages.props as PackageVersion.

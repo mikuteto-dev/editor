@@ -51,6 +51,7 @@ swift script/set-default.swift ~/Applications/Editor.app
 GPL-3.0-or-later. Bundled third-party code and assets keep their own licenses:
 
 - `vendor/gpui-component`: [gpui-component](https://github.com/longbridge/gpui-component), Apache-2.0, with small changes marked `editor patch:`
+- `vendor/gpui-base`: [gpui-base](https://github.com/longbridge/gpui-kit), Apache-2.0, with small changes marked `editor patch:`
 - `assets/themes`: from gpui-component, Apache-2.0
 - `assets/icons`: [Material Icon Theme](https://github.com/material-extensions/vscode-material-icon-theme), MIT
 - `assets/ui`: [Lucide](https://lucide.dev), ISC

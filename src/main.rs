@@ -1,10 +1,12 @@
 mod commands;
 mod dep_graph;
 mod diff_view;
+mod files;
 mod git;
 mod git_panel;
 mod icons;
 mod licenses;
+mod markdown;
 mod palette;
 mod recent;
 mod search;

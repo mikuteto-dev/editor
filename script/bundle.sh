@@ -9,6 +9,8 @@ rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp target/release/editor "$app/Contents/MacOS/editor"
 cp assets/Info.plist "$app/Contents/Info.plist"
+# Read on demand, not compiled in: a thousand icons stay out of memory until shown.
+cp -R assets/icons "$app/Contents/Resources/icons"
 # Assets.car carries the Liquid Glass icon for macOS 26+; AppIcon.icns covers older systems.
 xcrun actool assets/AppIcon.icon --compile "$app/Contents/Resources" --platform macosx \
     --minimum-deployment-target 13.0 --app-icon AppIcon \

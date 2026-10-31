@@ -41,7 +41,6 @@ fn requires(text: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-/// Lines of `require (...)` blocks and single `require` lines, without the keyword.
 fn requirement_lines(text: &str) -> impl Iterator<Item = (usize, &str)> {
     let mut block = false;
     text.lines().enumerate().filter_map(move |(line, raw)| {

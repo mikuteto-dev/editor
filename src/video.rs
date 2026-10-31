@@ -1,5 +1,3 @@
-//! Video in a tab: AVPlayer decodes, GPUI's `surface` draws its frames on the GPU.
-
 use std::{path::Path, ptr::NonNull};
 
 use gpui_kit::*;
