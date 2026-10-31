@@ -36,6 +36,7 @@ A lightweight code editor for macOS, built with [GPUI](https://www.gpui.rs).
 Requires macOS 13 or later, Rust, and Xcode 26 (for the app icon).
 
 ```sh
+script/icons.sh
 cargo run --release -- path/to/folder
 ```
 

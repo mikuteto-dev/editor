@@ -3,6 +3,7 @@
 set -eu
 cd "$(dirname "$0")/.."
 
+sh script/icons.sh
 cargo build --release
 app="$HOME/Applications/Editor.app"
 rm -rf "$app"
