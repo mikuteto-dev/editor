@@ -20,7 +20,7 @@ use crate::{
     recent,
     search::{OpenAt, SearchPanel},
     session::{self, Session},
-    tab::Tab,
+    tab::{Body, Tab},
     tree::{FileTree, TreeEvent},
     watch::Watch,
 };
@@ -108,7 +108,12 @@ impl Workspace {
         let Some(root) = &self.root else { return };
         let active = self.tabs.get(self.active).map(|t| &t.path);
         // Diff and commit tabs have no file behind them.
-        let tabs: Vec<_> = self.tabs.iter().map(|t| t.path.clone()).filter(|p| p.is_file()).collect();
+        let tabs: Vec<_> = self
+            .tabs
+            .iter()
+            .filter(|tab| !matches!(tab.body, Body::Preview(_)) && tab.path.is_file())
+            .map(|tab| tab.path.clone())
+            .collect();
         let active = tabs.iter().position(|p| Some(p) == active).unwrap_or(0);
         if let Err(e) = session::save(root, &Session { tabs, active }) {
             window.push_notification(format!("session: {e}"), cx);

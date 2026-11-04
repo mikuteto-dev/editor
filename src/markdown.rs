@@ -2,19 +2,18 @@
 // and inline code styles.
 use gpui_kit::{
     base::text::{TextView, TextViewStyle},
-    component::{
-        ActiveTheme, Icon, Sizable, Theme,
-        button::{Button, ButtonVariants},
-        h_flex,
-    },
+    component::{ActiveTheme, Sizable, Theme, clipboard::Clipboard, h_flex},
     *,
 };
 
-const COPY: &[u8] = include_bytes!("../assets/ui/copy.svg");
+mod art;
+mod graphics;
+mod mermaid;
 
 pub fn view(source: SharedString, cx: &App) -> TextView {
     TextView::markdown("markdown", source)
         .style(style(cx.theme()))
+        .markdown_extensions(graphics::extensions(cx.theme()))
         // The built-in language label pads the block by a whole empty line, so it rides with the copy button instead.
         .code_block_actions(|block, _, cx| {
             let code = block.code();
@@ -24,14 +23,7 @@ pub fn view(source: SharedString, cx: &App) -> TextView {
                 .text_xs()
                 .text_color(cx.theme().muted_foreground)
                 .children(block.lang().filter(|lang| !lang.is_empty()))
-                .child(
-                    Button::new("copy")
-                        .icon(Icon::default().data(COPY))
-                        .ghost()
-                        .xsmall()
-                        .tooltip("Copy")
-                        .on_click(move |_, _, cx| cx.write_to_clipboard(ClipboardItem::new_string(code.to_string()))),
-                )
+                .child(Clipboard::new("copy").value(code).xsmall().tooltip("Copy"))
         })
         .scrollable(true)
         .selectable(true)
@@ -51,7 +43,7 @@ mod tests {
     struct Page;
     impl Render for Page {
         fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-            super::view("# Title\n\nText with `code`.\n\n> quoted\n\n```rust\nfn main() {}\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n".into(), cx)
+            super::view(include_str!("../tests/fixtures/markdown.md").into(), cx)
         }
     }
 

@@ -25,10 +25,17 @@ pub struct Tab {
 
 pub enum Body {
     Text(Text),
+    Preview(PreviewPage),
     Image,
     Video(Video),
     Graph(Entity<crate::dep_graph::DepGraph>),
     Diff(Entity<crate::diff_view::DiffView>),
+}
+
+pub struct PreviewPage {
+    pub editor: Entity<EditorState>,
+    pub kind: PreviewKind,
+    pub view: Preview,
 }
 
 pub struct Text {
@@ -52,11 +59,13 @@ pub struct Text {
 pub enum PreviewKind {
     Svg,
     Markdown,
+    Tex,
 }
 
 pub enum Preview {
     Svg(Arc<Image>),
     Markdown(SharedString),
+    Tex(Entity<crate::tex::Preview>),
 }
 
 impl PreviewKind {
@@ -65,18 +74,21 @@ impl PreviewKind {
             Some(Self::Svg)
         } else if has_ext(path, &["md", "mdx", "markdown"]) {
             Some(Self::Markdown)
+        } else if has_ext(path, &["tex", "ltx"]) {
+            Some(Self::Tex)
         } else {
             None
         }
     }
 
-    pub fn render(self, text: &str) -> Preview {
+    pub fn render(self, editor: &Entity<EditorState>, path: &Path, root: &Path, cx: &mut App) -> Preview {
         match self {
             Self::Svg => Preview::Svg(Arc::new(Image::from_bytes(
                 ImageFormat::Svg,
-                text.as_bytes().to_vec(),
+                editor.read(cx).text().to_string().into_bytes(),
             ))),
-            Self::Markdown => Preview::Markdown(text.to_string().into()),
+            Self::Markdown => Preview::Markdown(editor.read(cx).text().to_string().into()),
+            Self::Tex => Preview::Tex(cx.new(|cx| crate::tex::Preview::new(path, root, editor.clone(), cx))),
         }
     }
 }
@@ -85,7 +97,7 @@ impl Tab {
     pub fn text(&self) -> Option<&Text> {
         match &self.body {
             Body::Text(text) => Some(text),
-            Body::Image | Body::Video(_) | Body::Graph(_) | Body::Diff(_) => None,
+            Body::Preview(_) | Body::Image | Body::Video(_) | Body::Graph(_) | Body::Diff(_) => None,
         }
     }
 
@@ -114,6 +126,15 @@ pub fn render_body(tab: &Tab, cx: &App) -> Div {
         Body::Video(_) => body,
         Body::Graph(view) => body.child(view.clone()),
         Body::Diff(view) => body.child(view.clone()),
+        Body::Preview(PreviewPage { view: Preview::Svg(image), .. }) => {
+            body.child(view(image.clone().into()))
+        }
+        Body::Preview(PreviewPage { view: Preview::Markdown(source), .. }) => body.child(
+            div().size_full().flex().justify_center().child(
+                crate::markdown::view(source.clone(), cx),
+            ),
+        ),
+        Body::Preview(PreviewPage { view: Preview::Tex(view), .. }) => body.child(view.clone()),
         Body::Text(Text { preview: Some(Preview::Svg(image)), .. }) => {
             body.child(view(image.clone().into()))
         }
@@ -122,6 +143,7 @@ pub fn render_body(tab: &Tab, cx: &App) -> Div {
                 crate::markdown::view(source.clone(), cx),
             ),
         ),
+        Body::Text(Text { preview: Some(Preview::Tex(view)), .. }) => body.child(view.clone()),
         Body::Text(text) => body.child(
             Editor::new(&text.editor)
                 .readonly(text.readonly)
@@ -161,8 +183,11 @@ pub fn language(path: &Path) -> &'static str {
     let name = by_name.unwrap_or(match ext.as_str() {
         "jsx" | "mjs" | "cjs" => "javascript",
         "mts" | "cts" => "typescript",
+        "vue" => return "vue",
+        "pyw" => "python",
+        "rbw" | "gemspec" => "ruby",
         "h" => "c",
-        "hpp" | "hh" | "cc" | "cxx" => "cpp",
+        "hpp" | "hh" | "hxx" | "cc" | "cxx" => "cpp",
         "htm" | "svg" => "html",
         "zsh" => "bash",
         "mk" => "make",
@@ -216,4 +241,16 @@ fn languages() {
     assert_eq!(language(Path::new("Makefile")), "make");
     assert_eq!(language(Path::new(".zshrc")), "bash");
     assert_eq!(language(Path::new("LICENSE")), "text");
+    for (file, expected) in [
+        ("App.vue", "vue"),
+        ("App.VUE", "vue"),
+        ("App.svelte", "svelte"),
+        ("index.astro", "astro"),
+        ("main.pyw", "python"),
+        ("lib.gemspec", "ruby"),
+        ("x.hxx", "cpp"),
+        ("unknown.xyz", "text"),
+    ] {
+        assert_eq!(language(Path::new(file)), expected, "{file}");
+    }
 }

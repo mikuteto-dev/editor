@@ -6,7 +6,21 @@ license = "GPL-3.0-or-later"
 publish = false
 
 [dependencies]
+mermaid-rs-renderer = { version = "0.3.1", default-features = false }
+ratex-layout = "0.1.15"
+ratex-parser = "0.1.15"
+ratex-svg = { version = "0.1.15", features = ["embed-fonts"] }
+ratex-types = "0.1.15"
+tree-sitter-vue-next = "0.1"
+unicode-width = "0.2"
+svgtypes = "0.16"
+# Already used by GPUI; PDF previews use native CoreGraphics and existing image buffers.
+image = { version = "0.25", default-features = false }
+libc = "0.2"
+tempfile = "3"
+objc2-core-graphics = { version = "0.3", default-features = false, features = ["std", "CGAffineTransform", "CGBitmapContext", "CGColorSpace", "CGContext", "CGDataProvider", "CGGeometry", "CGImage", "CGPDFDocument", "CGPDFPage"] }
 gpui-kit = { version = "=0.8.1", features = [
+    "tree-sitter-astro",
     "tree-sitter-bash",
     "tree-sitter-c",
     "tree-sitter-cmake",
@@ -27,6 +41,7 @@ gpui-kit = { version = "=0.8.1", features = [
     "tree-sitter-ruby",
     "tree-sitter-rust",
     "tree-sitter-sql",
+    "tree-sitter-svelte",
     "tree-sitter-swift",
     "tree-sitter-toml",
     "tree-sitter-tsx",
@@ -54,6 +69,7 @@ serde_json = "1"
 sha2 = "0.10"
 
 [dev-dependencies]
+resvg = "0.46"
 # Headless windows for UI tests: render, click and type without showing anything. gpui-kit's own
 # test-support would drag its unused gpui-fast backend into resolution and clash over taffy.
 gpui = { package = "gpui-pre", version = "=0.3.10", features = ["test-support"] }

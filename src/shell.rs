@@ -35,6 +35,10 @@ fn is_executable(path: &Path) -> bool {
     path.metadata().is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
 }
 
+pub fn executable(program: &str) -> Option<PathBuf> {
+    find(program, path())
+}
+
 pub fn command(program: &str) -> Command {
     let path = path();
     let mut command = Command::new(find(program, path).unwrap_or_else(|| program.into()));

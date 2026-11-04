@@ -12,7 +12,9 @@ mod recent;
 mod search;
 mod session;
 mod shell;
+mod syntax;
 mod tab;
+mod tex;
 mod theme;
 mod tree;
 mod video;
@@ -58,6 +60,7 @@ fn main() {
     });
     app.run(move |cx| {
         gpui_kit::init(cx);
+        syntax::init();
         theme::init(cx);
         tree::init(cx);
         git_panel::init(cx);

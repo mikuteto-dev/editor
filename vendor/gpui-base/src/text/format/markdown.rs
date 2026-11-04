@@ -21,6 +21,13 @@ pub(crate) fn parse(source: &str, cx: &mut NodeContext) -> Result<ParsedDocument
     let options = cx.markdown_extensions.parse_options();
     let mut root =
         markdown::to_mdast(source, &options).map_err(|e| SharedString::from(e.to_string()))?;
+    // editor patch: preserve original source positions and copy text for TeX delimiters.
+    if cx.markdown_extensions.has_tex_math()
+        && let Some(normalized) = super::tex::normalize(source, &root)
+    {
+        root = markdown::to_mdast(&normalized, &options)
+            .map_err(|e| SharedString::from(e.to_string()))?;
+    }
     let mut prose = options;
     prose.constructs.math_text = false;
     prose.constructs.math_flow = false;

@@ -11,14 +11,14 @@ use gpui_kit::{
 use super::Workspace;
 use crate::{
     commands::{CloseTab, Quit, Save, TogglePlay, TogglePreview},
-    tab::{Body, PreviewKind, Tab, Text, is_image, language},
+    tab::{Body, PreviewKind, PreviewPage, Tab, Text, is_image, language},
 
     video::{Video, is_video},
 };
 
 impl Workspace {
     pub(super) fn open(&mut self, path: PathBuf, pin: bool, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(ix) = self.tabs.iter().position(|t| t.path == path) {
+        if let Some(ix) = self.tabs.iter().position(|t| t.path == path && !matches!(t.body, Body::Preview(_))) {
             self.tabs[ix].pinned |= pin;
             return self.activate(ix, window, cx);
         }
@@ -70,11 +70,6 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) -> Body {
         let previewable = PreviewKind::of(path);
-        // An SVG is a picture first; Markdown opens for writing.
-        let preview = match previewable {
-            Some(kind @ PreviewKind::Svg) => Some(kind.render(&text)),
-            _ => None,
-        };
         let saved = Rope::from_str(&text);
         let editor = cx.new(|cx| {
             EditorState::new(window, cx)
@@ -87,6 +82,8 @@ impl Workspace {
                 })
                 .default_value(text)
         });
+        // Source files never execute or render on open; previews live in their own tabs.
+        let preview = None;
         let licenses = crate::licenses::Lines::default();
         if !readonly {
             let hover = std::rc::Rc::new(super::licenses::LicenseHover(licenses.clone()));
@@ -141,6 +138,12 @@ impl Workspace {
 
     pub(super) fn activate(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
         self.active = ix;
+        if let Some(Tab { path, body: Body::Preview(page), .. }) = self.tabs.get_mut(ix)
+            && !matches!(page.kind, PreviewKind::Tex)
+        {
+            let root = self.root.as_deref().unwrap_or_else(|| path.parent().unwrap_or(path));
+            page.view = page.kind.render(&page.editor, path, root, cx);
+        }
         // A hidden video keeps no sound or frames going.
         for (i, tab) in self.tabs.iter_mut().enumerate() {
             if let Body::Video(video) = &mut tab.body
@@ -189,10 +192,24 @@ impl Workspace {
     }
 
     pub(super) fn moved(&mut self, from: &Path, to: &Path, window: &mut Window, cx: &mut Context<Self>) {
+        let root = self.root.clone();
         for tab in &mut self.tabs {
             if let Ok(rest) = tab.path.strip_prefix(from) {
                 tab.path = if rest.as_os_str().is_empty() { to.to_path_buf() } else { to.join(rest) };
-                tab.name = tab.path.file_name().unwrap_or_default().to_string_lossy().into_owned().into();
+                let name = tab.path.file_name().unwrap_or_default().to_string_lossy();
+                tab.name = if matches!(tab.body, Body::Preview(_)) {
+                    format!("{name} Preview").into()
+                } else {
+                    name.into_owned().into()
+                };
+                match &mut tab.body {
+                    Body::Text(text) if matches!(text.preview, Some(crate::tab::Preview::Tex(_))) => text.preview = None,
+                    Body::Preview(page) => {
+                        let base = root.as_deref().unwrap_or_else(|| tab.path.parent().unwrap_or(&tab.path));
+                        page.view = page.kind.render(&page.editor, &tab.path, base, cx);
+                    }
+                    _ => {}
+                }
             }
         }
         self.activate(self.active, window, cx);
@@ -303,14 +320,82 @@ impl Workspace {
     }
 
     pub(super) fn toggle_preview(&mut self, _: &TogglePreview, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(Tab { body: Body::Text(text), .. }) = self.tabs.get_mut(self.active) else {
+        let Some(tab) = self.tabs.get(self.active) else { return };
+        if matches!(tab.body, Body::Preview(_)) {
+            let path = tab.path.clone();
+            if let Some(ix) = self.tabs.iter().position(|tab| tab.path == path && matches!(tab.body, Body::Text(_))) {
+                self.activate(ix, window, cx);
+            } else {
+                self.open(path.clone(), true, window, cx);
+                let Some(editor) = self.tabs.get(self.active).and_then(Tab::text).map(|text| text.editor.clone()) else {
+                    return;
+                };
+                let root = self.root.as_deref().unwrap_or_else(|| path.parent().unwrap_or(&path));
+                if let Some(Body::Preview(page)) = self
+                    .tabs
+                    .iter_mut()
+                    .find(|tab| tab.path == path && matches!(tab.body, Body::Preview(_)))
+                    .map(|tab| &mut tab.body)
+                {
+                    page.editor = editor;
+                    page.view = page.kind.render(&page.editor, &path, root, cx);
+                }
+            }
             return;
-        };
+        }
+        let Body::Text(text) = &tab.body else { return };
         let Some(kind) = text.previewable else { return };
-        text.preview = match text.preview {
-            Some(_) => None,
-            None => Some(kind.render(&text.editor.read(cx).text().to_string())),
-        };
-        self.activate(self.active, window, cx);
+        let path = tab.path.clone();
+        if let Some(ix) = self.tabs.iter().position(|tab| tab.path == path && matches!(tab.body, Body::Preview(_))) {
+            self.activate(ix, window, cx);
+            return;
+        }
+        let editor = text.editor.clone();
+        let name = format!("{} Preview", tab.name).into();
+        let root = self.root.as_deref().unwrap_or_else(|| path.parent().unwrap_or(&path));
+        let view = kind.render(&editor, &path, root, cx);
+        self.tabs[self.active].pinned = true;
+        self.insert(
+            Tab { path, name, body: Body::Preview(PreviewPage { editor, kind, view }), pinned: true },
+            window,
+            cx,
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::AppContext as _;
+
+    use super::{Body, TogglePreview, Workspace};
+
+    #[gpui::test]
+    fn preview_opens_in_a_separate_tab(cx: &mut gpui::TestAppContext) {
+        cx.update(gpui_kit::init);
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("page.md");
+        std::fs::write(&path, "# Page").unwrap();
+        let (workspace, cx) = cx.add_window_view(|window, cx| Workspace::new(None, window, cx));
+        cx.update(|window, cx| workspace.update(cx, |workspace, cx| workspace.open(path.clone(), true, window, cx)));
+        cx.update(|window, cx| {
+            workspace.update(cx, |workspace, cx| workspace.toggle_preview(&TogglePreview, window, cx))
+        });
+        workspace.read_with(cx, |workspace, _| {
+            assert_eq!(workspace.tabs.len(), 2);
+            assert!(matches!(workspace.tabs[0].body, Body::Text(_)));
+            assert!(matches!(workspace.tabs[1].body, Body::Preview(_)));
+            assert_eq!(workspace.active, 1);
+        });
+        cx.update(|window, cx| {
+            workspace.update(cx, |workspace, cx| workspace.toggle_preview(&TogglePreview, window, cx))
+        });
+        assert_eq!(workspace.read_with(cx, |workspace, _| workspace.active), 0);
+        cx.update(|window, cx| {
+            workspace.update(cx, |workspace, cx| workspace.toggle_preview(&TogglePreview, window, cx))
+        });
+        workspace.read_with(cx, |workspace, _| {
+            assert_eq!(workspace.tabs.len(), 2);
+            assert_eq!(workspace.active, 1);
+        });
     }
 }

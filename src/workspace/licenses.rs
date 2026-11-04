@@ -19,7 +19,7 @@ use crate::{
     commands::{DependencyGraph, DependencyLicenses},
     dep_graph::DepGraph,
     licenses::{self, Line, Lines, Report, Verdict, find, verdict},
-    tab::{Body, PreviewKind, Tab},
+    tab::{Body, Preview, Tab},
 };
 
 pub struct LicenseHover(pub Lines);
@@ -219,7 +219,7 @@ impl Workspace {
                 let page = page(&report);
                 let mut body = this.text(&key, page.clone(), "markdown", true, window, cx);
                 if let Body::Text(text) = &mut body {
-                    text.preview = Some(PreviewKind::Markdown.render(&page));
+                    text.preview = Some(Preview::Markdown(page.into()));
                 }
                 this.insert(Tab { path: key, name: "Licenses".into(), body, pinned: true }, window, cx);
             })

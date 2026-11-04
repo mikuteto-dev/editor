@@ -246,6 +246,7 @@ impl PartialEq for MarkdownNode {
 pub struct MarkdownExtensions {
     enable_mdx: bool,
     enable_frontmatter: bool,
+    tex_math: bool,
     block_parsers: Vec<Arc<MarkdownBlockParserFn>>,
     block_renderers: HashMap<SharedString, Arc<MarkdownBlockRenderFn>>,
     inline_parsers: Vec<Arc<MarkdownInlineParserFn>>,
@@ -262,6 +263,17 @@ impl MarkdownExtensions {
         self.parser_revision = revision;
         self.bump_revision();
         self
+    }
+
+    /// editor patch: recognize TeX math delimiters outside code and raw HTML.
+    pub fn tex_math(mut self) -> Self {
+        self.tex_math = true;
+        self.bump_revision();
+        self
+    }
+
+    pub(crate) fn has_tex_math(&self) -> bool {
+        self.tex_math
     }
 
     /// Enable YAML frontmatter parsing.
@@ -352,6 +364,7 @@ impl MarkdownExtensions {
         self.parser_revision == other.parser_revision
             && self.enable_mdx == other.enable_mdx
             && self.enable_frontmatter == other.enable_frontmatter
+            && self.tex_math == other.tex_math
             && self.block_parsers.len() == other.block_parsers.len()
             && self.block_renderers.len() == other.block_renderers.len()
             && self.inline_parsers.len() == other.inline_parsers.len()

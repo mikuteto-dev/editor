@@ -210,7 +210,7 @@ impl Language {
             #[cfg(feature = "tree-sitter-java")]
             "java" => Some(Self::Java),
             #[cfg(feature = "tree-sitter-javascript")]
-            "javascript" | "js" => Some(Self::JavaScript),
+            "javascript" | "js" | "jsx" => Some(Self::JavaScript),
             #[cfg(feature = "tree-sitter-jsdoc")]
             "jsdoc" => Some(Self::JsDoc),
             #[cfg(feature = "tree-sitter-kotlin")]
@@ -369,6 +369,11 @@ impl Language {
     ///
     /// (language, query, injection, locals)
     pub(super) fn config(&self) -> GrammarConfig {
+        // editor patch: JSX and TSX need the base language queries as well as JSX tags.
+        #[cfg(feature = "tree-sitter-javascript")]
+        let javascript;
+        #[cfg(feature = "tree-sitter-tsx")]
+        let tsx;
         let (language, query, injection, locals) = match self {
             Self::Plain => return GrammarConfig::plain(self.name()),
             Self::Json => (
@@ -434,12 +439,19 @@ impl Language {
                 "",
             ),
             #[cfg(feature = "tree-sitter-javascript")]
-            Self::JavaScript => (
-                tree_sitter_javascript::LANGUAGE,
-                include_str!("languages/javascript/highlights.scm"),
-                include_str!("languages/javascript/injections.scm"),
-                tree_sitter_javascript::LOCALS_QUERY,
-            ),
+            Self::JavaScript => {
+                javascript = format!(
+                    "{}\n{}",
+                    include_str!("languages/javascript/highlights.scm"),
+                    include_str!("languages/javascript/jsx.scm"),
+                );
+                (
+                    tree_sitter_javascript::LANGUAGE,
+                    javascript.as_str(),
+                    include_str!("languages/javascript/injections.scm"),
+                    tree_sitter_javascript::LOCALS_QUERY,
+                )
+            }
             #[cfg(feature = "tree-sitter-jsdoc")]
             Self::JsDoc => (
                 tree_sitter_jsdoc::LANGUAGE,
@@ -497,7 +509,13 @@ impl Language {
                 "",
             ),
             #[cfg(feature = "tree-sitter-swift")]
-            Self::Swift => (tree_sitter_swift::LANGUAGE, "", "", ""),
+            // editor patch: a parser without highlight queries leaves the file uncolored.
+            Self::Swift => (
+                tree_sitter_swift::LANGUAGE,
+                tree_sitter_swift::HIGHLIGHTS_QUERY,
+                "",
+                "",
+            ),
             #[cfg(feature = "tree-sitter-scala")]
             Self::Scala => (
                 tree_sitter_scala::LANGUAGE,
@@ -513,7 +531,12 @@ impl Language {
                 "",
             ),
             #[cfg(feature = "tree-sitter-csharp")]
-            Self::CSharp => (tree_sitter_c_sharp::LANGUAGE, "", "", ""),
+            Self::CSharp => (
+                tree_sitter_c_sharp::LANGUAGE,
+                tree_sitter_c_sharp::HIGHLIGHTS_QUERY,
+                "",
+                "",
+            ),
             #[cfg(feature = "tree-sitter-graphql")]
             Self::GraphQL => (tree_sitter_graphql::LANGUAGE, "", "", ""),
             #[cfg(feature = "tree-sitter-proto")]
@@ -526,7 +549,12 @@ impl Language {
                 "",
             ),
             #[cfg(feature = "tree-sitter-cmake")]
-            Self::CMake => (tree_sitter_cmake::LANGUAGE, "", "", ""),
+            Self::CMake => (
+                tree_sitter_cmake::LANGUAGE,
+                tree_sitter_cmake::HIGHLIGHTS_QUERY,
+                "",
+                "",
+            ),
             #[cfg(feature = "tree-sitter-typescript")]
             Self::TypeScript => (
                 tree_sitter_typescript::LANGUAGE_TYPESCRIPT,
@@ -535,12 +563,19 @@ impl Language {
                 tree_sitter_typescript::LOCALS_QUERY,
             ),
             #[cfg(feature = "tree-sitter-tsx")]
-            Self::Tsx => (
-                tree_sitter_typescript::LANGUAGE_TSX,
-                tree_sitter_typescript::HIGHLIGHTS_QUERY,
-                "",
-                tree_sitter_typescript::LOCALS_QUERY,
-            ),
+            Self::Tsx => {
+                tsx = format!(
+                    "{}\n{}",
+                    include_str!("languages/typescript/highlights.scm"),
+                    include_str!("languages/javascript/jsx.scm"),
+                );
+                (
+                    tree_sitter_typescript::LANGUAGE_TSX,
+                    tsx.as_str(),
+                    "",
+                    tree_sitter_typescript::LOCALS_QUERY,
+                )
+            }
             #[cfg(feature = "tree-sitter-diff")]
             Self::Diff => (
                 tree_sitter_diff::LANGUAGE,

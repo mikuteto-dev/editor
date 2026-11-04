@@ -48,12 +48,12 @@ impl Workspace {
                 .prefix(img(icons::file(&tab.name)).size_4().ml_2())
                 .suffix(suffix)
         });
-        let text = self.tabs.get(self.active).and_then(Tab::text).filter(|t| t.previewable.is_some());
-        let preview = text.map(|text| {
-            let (svg, tip) = match text.preview {
-                Some(_) => (CODE_ICON, "Show Code"),
-                None => (EYE_ICON, "Show Preview"),
-            };
+        let preview = self.tabs.get(self.active).and_then(|tab| match &tab.body {
+            Body::Text(text) if text.previewable.is_some() => Some((EYE_ICON, "Open Preview")),
+            Body::Preview(_) => Some((CODE_ICON, "Show Code")),
+            _ => None,
+        });
+        let preview = preview.map(|(svg, tip)| {
             Button::new("preview")
                 .icon(Icon::default().data(svg))
                 .ghost()

@@ -100,7 +100,8 @@ impl GlobalState {
         cx.global_mut::<Self>()
     }
 
-    pub(crate) fn text_view_state(&self) -> Option<Entity<TextViewState>> {
+    /// editor patch: async Markdown resources retain a weak owner to invalidate layout on completion.
+    pub fn text_view_state(&self) -> Option<Entity<TextViewState>> {
         self.text_view_state_stack.borrow().last().cloned()
     }
 
